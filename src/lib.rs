@@ -197,8 +197,12 @@ impl RtmClient {
         // Slack can leave us hanging
         {
             let socket = match *websocket.get_mut() {
-                tungstenite::stream::Stream::Plain(ref s) => s,
-                tungstenite::stream::Stream::Tls(ref mut t) => t.get_mut(),
+                tungstenite::stream::MaybeTlsStream::Plain(ref s) => s,
+                #[cfg(feature = "with_native_tls")]
+                tungstenite::stream::MaybeTlsStream::NativeTls(ref mut t) => t.get_mut(),
+                #[cfg(feature = "with_rustls")]
+                tungstenite::stream::MaybeTlsStream::Rustls(ref mut t) => t.get_mut(),
+                _ => todo!(),
             };
             socket.set_read_timeout(Some(std::time::Duration::from_secs(30)))?;
             socket.set_write_timeout(Some(std::time::Duration::from_secs(25)))?;
@@ -265,6 +269,7 @@ impl RtmClient {
                     tungstenite::Message::Ping(_) => print_recieved("Ping"),
                     tungstenite::Message::Pong(_) => print_recieved("Pong"),
                     tungstenite::Message::Close(_) => print_recieved("Close"),
+                    tungstenite::Message::Frame(_) => print_recieved("Frame"),
                 }
             }
             prev_ = received;
